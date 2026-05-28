@@ -11,4 +11,4 @@ const gltfSceneScale = 0.2;
 const splatUrl = "assets/splat.ply";
 const splatBackgroundOffset = new THREE.Vector3(0, 0, -0.1);
 
-export {isDebug, gltfUrl, gltfSceneScale, splatUrl, splatBackgroundOffset, splatSwapYZMatrix}
+export {isDebug, gltfUrl, gltfSceneScale, splatUrl, splatBackgroundOffset}
