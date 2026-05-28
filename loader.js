@@ -29,6 +29,7 @@ function loadSplat(splatUrl, scene, isYzSwap, offset){
     }).catch((err)=>{
         console.error(err);
     })
+    return [splatRoot, splatBody]
 }
 function frameObject(camera, controls, object, clippingRadiusScale = 1) {
   const box = new THREE.Box3().setFromObject(object);
