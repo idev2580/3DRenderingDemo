@@ -40,6 +40,36 @@ const keyLight = new THREE.DirectionalLight(0xffffff, 2.4);
 keyLight.position.set(3, 4, 5);
 scene.add(keyLight);
 
+const textureScene = new THREE.Scene();
+textureScene.background = new THREE.Color(0x263047);
+const textureSpark = new SparkRenderer({ renderer });
+textureScene.add(textureSpark);
+
+const textureCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 10);
+textureCamera.position.set(0, 0, 0);
+textureCamera.lookAt(0, 0, 1);
+
+const renderTarget = new THREE.WebGLRenderTarget(512, 512);
+// const textureMesh = new THREE.Mesh(
+//   new THREE.BoxGeometry(1, 1, 1),
+//   new THREE.MeshNormalMaterial()
+// );
+
+// textureScene.add(textureMesh);
+
+const renderPlane = new THREE.Mesh(
+  new THREE.PlaneGeometry(0.15, 0.15),
+  new THREE.MeshBasicMaterial({
+    map: renderTarget.texture,
+    side: THREE.DoubleSide,
+  })
+);
+loadSplat(splatUrl, textureScene, true, splatBackgroundOffset);
+
+renderPlane.position.set(0, 0, 0);
+renderPlane.rotateY(3.141592653589793238 / 2.0)
+scene.add(renderPlane);
+
 const clock = new THREE.Clock();
 const { loadedScene, mixer } = await loadGltfScene(gltfUrl, scene, camera, controls, gltfSceneScale);
 loadSplat(splatUrl, scene, true, splatBackgroundOffset);
@@ -57,7 +87,16 @@ renderer.setAnimationLoop(() => {
     mixer.update(delta);
   }
 
+//   textureMesh.rotation.x += delta * 0.7;
+//   textureMesh.rotation.y += delta * 1.1;
+  textureCamera.rotation.y += delta * 1.1;
+
   controls.update();
+
+  renderer.setRenderTarget(renderTarget);
+  renderer.render(textureScene, textureCamera);
+  renderer.setRenderTarget(null);
+
   renderer.render(scene, camera);
   if(isDebug){
     renderAxesOverlay(renderer, camera, controls);
