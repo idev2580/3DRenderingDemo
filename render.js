@@ -1,12 +1,12 @@
 import * as THREE from "three";
-import {  SparkRenderer, SparkControls, SplatMesh, dyno } from "@sparkjsdev/spark";
+import { SparkRenderer, SparkControls, SplatMesh, dyno } from "@sparkjsdev/spark";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-import {isDebug, gltfUrl, gltfSceneScale, splat1Url, splat1BackgroundOffset, splat2Url, splat2BackgroundOffset} from "config";
+import { isDebug, gltfUrl, gltfSceneScale, splat1Url, splat1BackgroundOffset, splat2Url, splat2BackgroundOffset } from "config";
 import { renderAxesOverlay } from "util";
 import { loadSplat, loadGltfScene } from "loader";
-import {splatEffectInitialize} from "effect";
+import { splatEffectInitialize } from "effect";
 
 const container = document.querySelector("#viewport");
 
@@ -64,6 +64,12 @@ const defaultDuckPlaneTransform = {
   ),
   scale: 124,
 };
+const defaultDuckPlaneVertices = [
+  new THREE.Vector3(-0.045, 0.047, 0.011),
+  new THREE.Vector3(0.05, 0.044, 0.005),
+  new THREE.Vector3(-0.0417, -0.05, 0.006),
+  new THREE.Vector3(0.055, -0.046, 0.005),
+];
 const renderPlane = new THREE.Mesh(
   new THREE.PlaneGeometry(0.1, 0.1),
   new THREE.MeshBasicMaterial({
@@ -76,6 +82,19 @@ textureScene.add(texSplatRoot);
 renderPlane.position.copy(defaultDuckPlaneTransform.position);
 renderPlane.rotation.copy(defaultDuckPlaneTransform.rotation);
 renderPlane.scale.setScalar(defaultDuckPlaneTransform.scale);
+
+function setPlaneVertices(mesh, vertices) {
+  const positions = mesh.geometry.getAttribute("position");
+  vertices.forEach((vertex, index) => {
+    positions.setXYZ(index, vertex.x, vertex.y, vertex.z);
+  });
+  positions.needsUpdate = true;
+  mesh.geometry.computeVertexNormals();
+  mesh.geometry.computeBoundingBox();
+  mesh.geometry.computeBoundingSphere();
+}
+
+setPlaneVertices(renderPlane, defaultDuckPlaneVertices);
 
 const clock = new THREE.Clock();
 const { loadedScene, modelRoot, mixer } = await loadGltfScene(gltfUrl, camera, controls, gltfSceneScale);
@@ -278,7 +297,7 @@ function createTransformSection({ title, description, target, ranges }) {
   return section;
 }
 
-function createModelControlPanel(modelTarget, planeTarget) {
+function createModelControlPanel(modelTarget) {
   const panel = document.createElement("aside");
   panel.setAttribute("aria-label", "Model transform controls");
   panel.style.position = "fixed";
@@ -314,22 +333,12 @@ function createModelControlPanel(modelTarget, planeTarget) {
     },
   });
 
-  const planeSection = createTransformSection({
-    title: "Duck Plane",
-    description: "nub의 자식으로 들어간 평면의 로컬 transform입니다.",
-    target: planeTarget,
-    ranges: {
-      position: [-1, 1],
-      scale: [0.01, 2],
-    },
-  });
-
-  panel.append(heading, modelSection, planeSection);
+  panel.append(heading, modelSection);
   document.body.appendChild(panel);
 }
 
 if (isDebug) {
-  createModelControlPanel(modelRoot, renderPlane);
+  createModelControlPanel(modelRoot);
 }
 
 const bgSplatTimeOffset = -1.5924994035447764;
