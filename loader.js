@@ -11,7 +11,7 @@ const splatSwapYZMatrix = new THREE.Matrix4().set(
   0, 0, 0, 1
 );
 
-function loadSplat(splatUrl, scene, isYzSwap, offset){
+function loadSplat(splatUrl, isYzSwap, offset){
     const splatRoot = new THREE.Group();
     const splatBody = new SplatMesh({
         url: splatUrl,
@@ -23,8 +23,6 @@ function loadSplat(splatUrl, scene, isYzSwap, offset){
     }
     
     splatRoot.add(splatBody)
-    scene.add(splatRoot)
-
     splatBody.initialized.then(()=>{
         splatRoot.position.add(offset);
     }).catch((err)=>{
@@ -53,12 +51,12 @@ function frameObject(camera, controls, object, clippingRadiusScale = 1) {
   controls.update();
 }
 
-async function loadGltfScene(gltfUrl, scene, camera, controls, sceneScale=1.0){
+async function loadGltfScene(gltfUrl, camera, controls, sceneScale=1.0){
     const loader = new GLTFLoader();
     const dracoLoader = new DRACOLoader();
     dracoLoader.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.6/");
     loader.setDRACOLoader(dracoLoader);
-    
+
     const gltf = await loader.loadAsync(gltfUrl);
     const loadedScene = gltf.scene
     loadedScene.traverse((object) => {
@@ -78,7 +76,6 @@ async function loadGltfScene(gltfUrl, scene, camera, controls, sceneScale=1.0){
     modelRoot.scale.setScalar(scale);
     modelRoot.position.copy(center).multiplyScalar(-scale);
     modelRoot.add(loadedScene);
-    scene.add(modelRoot);
     
     let mixer = null;
     if (gltf.animations.length > 0) {

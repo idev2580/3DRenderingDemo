@@ -57,14 +57,17 @@ const renderPlane = new THREE.Mesh(
     side: THREE.DoubleSide,
   })
 );
-const [texSplatRoot, texSplat] = loadSplat(splat2Url, textureScene, true, splat2BackgroundOffset);
+const [texSplatRoot, texSplat] = loadSplat(splat2Url, true, splat2BackgroundOffset);
+textureScene.add(texSplatRoot)
 renderPlane.position.set(-0.055, -0.035, 0);
 renderPlane.rotateY(3.141592653589793238 / 2.0)
 renderPlane.rotateX(3.141592653589793238 / 16.0)
+// renderPlane.rotateZ(3.141592653589793238 / 24.0)
 scene.add(renderPlane);
 
 const clock = new THREE.Clock();
-const { loadedScene, mixer } = await loadGltfScene(gltfUrl, scene, camera, controls, gltfSceneScale);
+const { loadedScene, mixer, modelRoot } = await loadGltfScene(gltfUrl, camera, controls, gltfSceneScale);
+scene.add(modelRoot)
 
 const bgSplatTimeOffset = -1.5924994035447764;
 // const bgSplatTimeOffset = -1.5924994035447764;
@@ -74,7 +77,8 @@ const effectParams = {
   intensity: 0.8,
   sceneScale: 0.1
 };
-const [bgRoot, bgSplat] = loadSplat(splat1Url, scene, true, splat1BackgroundOffset);
+const [bgRoot, bgSplat] = loadSplat(splat1Url, true, splat1BackgroundOffset);
+scene.add(bgRoot)
 bgRoot.rotateY(3.141592653589793238 / 3.0)
 splatEffectInitialize(bgSplat, bgSplatAnimateT, effectParams)
 
