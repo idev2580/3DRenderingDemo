@@ -1,6 +1,8 @@
 import {  SparkRenderer, SparkControls, SplatMesh, dyno } from "@sparkjsdev/spark";
 
 function splatEffectInitialize(splat, animateT, effectParams){
+    const alpha = effectParams.alpha ?? dyno.dynoFloat(1);
+
     splat.objectModifier = dyno.dynoBlock(
     { gsplat: dyno.Gsplat },
     { gsplat: dyno.Gsplat },
@@ -10,7 +12,8 @@ function splatEffectInitialize(splat, animateT, effectParams){
             gsplat: dyno.Gsplat, 
             t: "float", 
             intensity: "float" ,
-            sceneScale: "float"
+            sceneScale: "float",
+            alpha: "float"
         },
         outTypes: { gsplat: dyno.Gsplat },
         globals: () => [
@@ -99,6 +102,7 @@ function splatEffectInitialize(splat, animateT, effectParams){
             vec4 e = disintegrate(localPos * ${inputs.sceneScale}, ${inputs.t}, ${inputs.intensity});
             ${outputs.gsplat}.center = e.xyz / ${inputs.sceneScale};
             ${outputs.gsplat}.scales = mix(vec3(.01, .01, .01), ${inputs.gsplat}.scales, e.w);
+            ${outputs.gsplat}.rgba.a *= ${inputs.alpha};
         `),
         });
 
@@ -106,7 +110,8 @@ function splatEffectInitialize(splat, animateT, effectParams){
         gsplat, 
         t: animateT,
         intensity: dyno.dynoFloat(effectParams.intensity),
-        sceneScale: dyno.dynoFloat(effectParams.sceneScale)
+        sceneScale: dyno.dynoFloat(effectParams.sceneScale),
+        alpha
         }).gsplat;
         return { gsplat };
     }

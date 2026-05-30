@@ -80,18 +80,57 @@ renderPlane.scale.setScalar(defaultDuckPlaneTransform.scale);
 const clock = new THREE.Clock();
 const { loadedScene, modelRoot, mixer } = await loadGltfScene(gltfUrl, camera, controls, gltfSceneScale);
 const followObject = loadedScene.getObjectByName("아마츄어");
+const transitionObject = loadedScene.getObjectByName("아마츄어001");
 const followTarget = new THREE.Vector3();
 const previousFollowTarget = new THREE.Vector3();
-const initialFollowCameraOffset = new THREE.Vector3(0.75, 0.15, 0.15);
+const initialFollowCameraOffset = new THREE.Vector3(0.48, 0.1, 0.1);
 const cameraApproachScale = 0.65;
 const cameraApproachDuration = 0.8;
+const cameraApproachYaw = THREE.MathUtils.degToRad(90);
 const cameraApproachStartOffset = new THREE.Vector3();
 const cameraApproachCurrentOffset = new THREE.Vector3();
 let hasPreviousFollowTarget = false;
 let hasCameraApproachStartOffset = false;
 
+function setObjectOpacity(object, opacity) {
+  object.traverse((child) => {
+    if (!child.isMesh || !child.material) {
+      return;
+    }
+
+    const materials = Array.isArray(child.material) ? child.material : [child.material];
+
+    for (const material of materials) {
+      material.transparent = opacity < 1;
+      material.opacity = opacity;
+      material.depthWrite = opacity >= 1;
+      material.needsUpdate = true;
+    }
+  });
+}
+
+function cloneObjectMaterials(object) {
+  object.traverse((child) => {
+    if (!child.isMesh || !child.material) {
+      return;
+    }
+
+    child.material = Array.isArray(child.material)
+      ? child.material.map((material) => material.clone())
+      : child.material.clone();
+  });
+}
+
 if (!followObject) {
   console.warn("follow object not found: 아마츄어");
+}
+
+if (transitionObject) {
+  cloneObjectMaterials(transitionObject);
+  transitionObject.visible = true;
+  setObjectOpacity(transitionObject, 0);
+} else {
+  console.warn("transition object not found: 아마츄어.001");
 }
 
 modelRoot.position.copy(defaultNubTransform.position);
@@ -360,19 +399,25 @@ if (isDebug) {
 const bgSplatTimeOffset = -1.5924994035447764;
 // const bgSplatTimeOffset = -1.5924994035447764;
 const bgSplatAnimateT = dyno.dynoFloat(bgSplatTimeOffset);
+const bgSplatAlpha = dyno.dynoFloat(1);
+const bg2SplatAlpha = dyno.dynoFloat(0);
+const texSplatAlpha = dyno.dynoFloat(1);
 const effectParams = {
   effect: "Disintegrate",
   intensity: 0.8,
   sceneScale: 0.1
 };
+const bgEffectParams = { ...effectParams, alpha: bgSplatAlpha };
+const bg2EffectParams = { ...effectParams, alpha: bg2SplatAlpha };
+const texEffectParams = { ...effectParams, alpha: texSplatAlpha };
 const [bgRoot, bgSplat] = loadSplat(splat1Url, true, splat1BackgroundOffset);
 const [bg2Root, bg2Splat] = loadSplat(splat2Url, true, splat1BackgroundOffset);
 scene.add(bgRoot);
 scene.add(bg2Root)
 bgRoot.rotateY(3.141592653589793238 / 3.0);
-splatEffectInitialize(bgSplat, bgSplatAnimateT, effectParams);
-splatEffectInitialize(bg2Splat, bgSplatAnimateT, effectParams);
-splatEffectInitialize(texSplat, bgSplatAnimateT, effectParams);
+splatEffectInitialize(bgSplat, bgSplatAnimateT, bgEffectParams);
+splatEffectInitialize(bg2Splat, bgSplatAnimateT, bg2EffectParams);
+splatEffectInitialize(texSplat, bgSplatAnimateT, texEffectParams);
 
 await Promise.all([bgSplat.initialized, texSplat.initialized]);
 window.addEventListener("resize", () => {
@@ -381,14 +426,15 @@ window.addEventListener("resize", () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-bg2Root.visible=false
-bg2Root.rotateY(1.2 * 3.141592653589793238)
 bg2Root.position.y = -0.07
-bg2Root.position.z = 0.1
-bg2Root.position.x = -0.1
+bg2Root.position.z = -0.2
+bg2Root.position.x = -0.2
+bg2Root.rotateY(1.8 * 3.141592653589793238)
 const thresholdTime = 2
 const switchAnimationHalfLength = 1.6
 const switchAnimationLength = 2 * switchAnimationHalfLength
+const splatFadeStartTime = thresholdTime + switchAnimationHalfLength / 2
+const splatFadeEndTime = splatFadeStartTime + switchAnimationHalfLength
 renderer.setAnimationLoop(() => {
   const delta = clock.getDelta();
   // console.log(`ElapsedTime = ${clock.elapsedTime}`)
@@ -398,12 +444,21 @@ renderer.setAnimationLoop(() => {
     bg2Splat.updateVersion();
     texSplat.updateVersion();
   }
-  if(clock.elapsedTime > thresholdTime + switchAnimationHalfLength){
-    bg2Root.visible = true
-    bgRoot.visible = false
+  if (clock.elapsedTime >= splatFadeStartTime) {
+    const fadeAlpha = THREE.MathUtils.smoothstep(
+      clock.elapsedTime,
+      splatFadeStartTime,
+      splatFadeEndTime
+    );
+
+    bgSplatAlpha.value = 1 - fadeAlpha;
+    bg2SplatAlpha.value = fadeAlpha;
+    if (transitionObject) {
+      setObjectOpacity(transitionObject, fadeAlpha);
+    }
+    bgSplat.updateVersion();
+    bg2Splat.updateVersion();
   }
-  // bgSplatAnimateT.value += 2 * delta;
-  // bgSplat.updateVersion();
 
   if (mixer) {
     mixer.update(delta);
@@ -435,9 +490,11 @@ renderer.setAnimationLoop(() => {
         thresholdTime + cameraApproachDuration
       );
       const currentScale = THREE.MathUtils.lerp(1, cameraApproachScale, approachAlpha);
+      const currentYaw = cameraApproachYaw * approachAlpha;
 
       cameraApproachCurrentOffset
         .copy(cameraApproachStartOffset)
+        .applyAxisAngle(new THREE.Vector3(0, 1, 0), currentYaw)
         .multiplyScalar(currentScale);
       camera.position.copy(controls.target).add(cameraApproachCurrentOffset);
     }
@@ -455,3 +512,4 @@ renderer.setAnimationLoop(() => {
     renderAxesOverlay(renderer, camera, controls);
   }
 });
+window.bg2Root = bg2Root

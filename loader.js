@@ -82,7 +82,11 @@ async function loadGltfScene(gltfUrl, camera, controls, sceneScale=1.0){
         mixer = new THREE.AnimationMixer(loadedScene);
 
         for (const clip of gltf.animations) {
-            mixer.clipAction(clip).play();
+            const action = mixer.clipAction(clip);
+
+            action.setLoop(THREE.LoopOnce, 1);
+            action.clampWhenFinished = true;
+            action.play();
         }
     }
     frameObject(camera, controls, modelRoot, 1 / sceneScale);
