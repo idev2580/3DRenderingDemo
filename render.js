@@ -81,23 +81,23 @@ const defaultCameraTrajectory = [
   {
     frame: 0,
     camera: {
-      pos_x: 0.3913685233622804,
-      pos_y: 0.31538454397056,
-      pos_z: 0.7662335576788275,
+      pos_x: 0.633671575902512,
+      pos_y: 0.25515659509114985,
+      pos_z: 0.2157952701420278,
       target_x: 1.8318679906315083e-15,
       target_y: 3.0531133177191805e-15,
-      target_z: 3.4416913763379857e-15,
+      target_z: 3.4416913763379857e-15
     },
   },
   {
-    frame: 60,
+    frame: 67,
     camera: {
-      pos_x: -0.1061780792978928,
-      pos_y: -0.0719938121798051,
-      pos_z: 0.08279238218098461,
-      target_x: -0.10620534814175221,
-      target_y: -0.07201026062733466,
-      target_z: 0.0827207757758963,
+      pos_x: -0.15,
+      pos_y: -0.09,
+      pos_z: -0.01,
+      target_x: -0.1500177247485086,
+      target_y: -0.09001069149089413,
+      target_z: -0.010046544163307547,
     },
   },
   {
@@ -422,7 +422,7 @@ function createCameraControlSection(targetCamera, targetControls) {
 
   const descriptionEl = document.createElement("div");
   descriptionEl.textContent =
-    "현재 카메라 위치와 target을 직접 입력할 수 있습니다. 마우스로 뷰를 움직이면 값도 함께 갱신됩니다.";
+    "현재 카메라 위치와 target을 직접 입력할 수 있습니다. Pos 편집 시 Keep View가 켜져 있으면 target도 함께 이동해서 시선 방향을 유지합니다.";
   styleElement(descriptionEl, {
     fontSize: "12px",
     lineHeight: "1.5",
@@ -433,6 +433,7 @@ function createCameraControlSection(targetCamera, targetControls) {
   const state = {
     position: initialValues.position.clone(),
     target: initialValues.target.clone(),
+    keepViewOffsetEnabled: true,
   };
   let isEditing = false;
 
@@ -446,6 +447,22 @@ function createCameraControlSection(targetCamera, targetControls) {
     applyCameraTransformValues(targetCamera, targetControls, state);
   }
 
+  function syncTargetRowsFromState() {
+    rows.targetX.setValue(state.target.x);
+    rows.targetY.setValue(state.target.y);
+    rows.targetZ.setValue(state.target.z);
+  }
+
+  function setPositionAxis(axis, value) {
+    const delta = value - state.position[axis];
+    state.position[axis] = value;
+    if (state.keepViewOffsetEnabled) {
+      state.target[axis] += delta;
+      syncTargetRowsFromState();
+    }
+    applyStateToCamera();
+  }
+
   const rows = {
     posX: createManagedInputRow({
       label: "Pos X",
@@ -454,8 +471,7 @@ function createCameraControlSection(targetCamera, targetControls) {
       step: 0.01,
       initialValue: state.position.x,
       onInput: (value) => {
-        state.position.x = value;
-        applyStateToCamera();
+        setPositionAxis("x", value);
       },
     }),
     posY: createManagedInputRow({
@@ -465,8 +481,7 @@ function createCameraControlSection(targetCamera, targetControls) {
       step: 0.01,
       initialValue: state.position.y,
       onInput: (value) => {
-        state.position.y = value;
-        applyStateToCamera();
+        setPositionAxis("y", value);
       },
     }),
     posZ: createManagedInputRow({
@@ -476,8 +491,7 @@ function createCameraControlSection(targetCamera, targetControls) {
       step: 0.01,
       initialValue: state.position.z,
       onInput: (value) => {
-        state.position.z = value;
-        applyStateToCamera();
+        setPositionAxis("z", value);
       },
     }),
     targetX: createManagedInputRow({
@@ -515,6 +529,14 @@ function createCameraControlSection(targetCamera, targetControls) {
     }),
   };
 
+  const keepViewButton = createButton("Keep View On", "secondary");
+  keepViewButton.addEventListener("click", () => {
+    state.keepViewOffsetEnabled = !state.keepViewOffsetEnabled;
+    keepViewButton.textContent = state.keepViewOffsetEnabled ? "Keep View On" : "Keep View Off";
+    setToggleButtonState(keepViewButton, state.keepViewOffsetEnabled);
+  });
+  setToggleButtonState(keepViewButton, state.keepViewOffsetEnabled);
+
   function syncRowsFromState() {
     rows.posX.setValue(state.position.x);
     rows.posY.setValue(state.position.y);
@@ -548,6 +570,7 @@ function createCameraControlSection(targetCamera, targetControls) {
   section.append(
     titleEl,
     descriptionEl,
+    keepViewButton,
     rows.posX.row,
     rows.posY.row,
     rows.posZ.row,
@@ -1410,6 +1433,9 @@ function createCameraTrajectoryEditor({
     isPreviewEnabled() {
       return state.previewEnabled;
     },
+    getCurrentTime() {
+      return state.currentTime;
+    },
   };
 }
 
@@ -1424,14 +1450,7 @@ const { gltf, loadedScene, modelRoot, mixer } = await loadGltfScene(
 );
 const followObject = loadedScene.getObjectByName("아마츄어");
 const followTarget = new THREE.Vector3();
-const previousFollowTarget = new THREE.Vector3();
 const initialFollowCameraOffset = new THREE.Vector3(0.75, 0.15, 0.15);
-const cameraApproachScale = 0.65;
-const cameraApproachDuration = 0.8;
-const cameraApproachStartOffset = new THREE.Vector3();
-const cameraApproachCurrentOffset = new THREE.Vector3();
-let hasPreviousFollowTarget = false;
-let hasCameraApproachStartOffset = false;
 
 modelRoot.position.copy(defaultNubTransform.position);
 modelRoot.rotation.copy(defaultNubTransform.rotation);
@@ -1446,8 +1465,6 @@ if (!followObject) {
   followObject.getWorldPosition(followTarget);
   controls.target.copy(followTarget);
   camera.position.copy(followTarget).add(initialFollowCameraOffset);
-  previousFollowTarget.copy(followTarget);
-  hasPreviousFollowTarget = true;
   controls.update();
 }
 
@@ -1492,7 +1509,7 @@ window.addEventListener("resize", () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-bg2Root.visible=false
+bg2Root.visible = false
 bg2Root.rotateY(1.2 * 3.141592653589793238)
 bg2Root.position.y = -0.07
 bg2Root.position.z = 0.1
@@ -1502,54 +1519,19 @@ const switchAnimationHalfLength = 1.6
 const switchAnimationLength = 2 * switchAnimationHalfLength
 renderer.setAnimationLoop(() => {
   const delta = clock.getDelta();
-  if (clock.elapsedTime > thresholdTime && clock.elapsedTime < thresholdTime + switchAnimationLength) {
-    bgSplatAnimateT.value += 2 * delta;
-    bgSplat.updateVersion();
-    bg2Splat.updateVersion();
-    texSplat.updateVersion();
-  }
-  if (clock.elapsedTime > thresholdTime + switchAnimationHalfLength) {
-    bg2Root.visible = true
-    bgRoot.visible = false
-  }
+  cameraTrajectoryEditor.update(delta);
+  const sceneTime = cameraTrajectoryEditor.getCurrentTime();
+  const switchElapsedTime = clamp(sceneTime - thresholdTime, 0, switchAnimationLength);
+  bgSplatAnimateT.value = bgSplatTimeOffset + switchElapsedTime * 2;
+  bgSplat.updateVersion();
+  bg2Splat.updateVersion();
+  texSplat.updateVersion();
+
+  const hasSwitchedScene = sceneTime >= thresholdTime + switchAnimationHalfLength;
+  bg2Root.visible = hasSwitchedScene
+  bgRoot.visible = !hasSwitchedScene
 
   textureCamera.rotation.y += delta * 0.4;
-
-  cameraTrajectoryEditor.update(delta);
-  if (followObject && !cameraTrajectoryEditor.isPreviewEnabled()) {
-    followObject.getWorldPosition(followTarget);
-
-    if (!hasPreviousFollowTarget) {
-      previousFollowTarget.copy(followTarget);
-      hasPreviousFollowTarget = true;
-    }
-
-    const followDelta = followTarget.clone().sub(previousFollowTarget);
-
-    controls.target.add(followDelta);
-    camera.position.add(followDelta);
-
-    if (clock.elapsedTime >= thresholdTime) {
-      if (!hasCameraApproachStartOffset) {
-        cameraApproachStartOffset.copy(camera.position).sub(controls.target);
-        hasCameraApproachStartOffset = true;
-      }
-
-      const approachAlpha = THREE.MathUtils.smoothstep(
-        clock.elapsedTime,
-        thresholdTime,
-        thresholdTime + cameraApproachDuration
-      );
-      const currentScale = THREE.MathUtils.lerp(1, cameraApproachScale, approachAlpha);
-
-      cameraApproachCurrentOffset
-        .copy(cameraApproachStartOffset)
-        .multiplyScalar(currentScale);
-      camera.position.copy(controls.target).add(cameraApproachCurrentOffset);
-    }
-
-    previousFollowTarget.copy(followTarget);
-  }
   controls.update();
   cameraControlSection?.update();
 
