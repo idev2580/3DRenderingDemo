@@ -50,15 +50,16 @@ textureCamera.lookAt(0, 0, 1);
 
 const renderTarget = new THREE.WebGLRenderTarget(512, 512);
 const renderPlane = new THREE.Mesh(
-  new THREE.PlaneGeometry(0.15, 0.15),
+  new THREE.PlaneGeometry(0.1, 0.1),
   new THREE.MeshBasicMaterial({
     map: renderTarget.texture,
     side: THREE.DoubleSide,
   })
 );
 const [texSplatRoot, texSplat] = loadSplat(splat2Url, textureScene, true, splat2BackgroundOffset);
-renderPlane.position.set(0, 0, 0);
-renderPlane.rotateY(3.141592653589793238 / 3.0)
+renderPlane.position.set(-0.055, -0.035, 0);
+renderPlane.rotateY(3.141592653589793238 / 2.0)
+renderPlane.rotateX(3.141592653589793238 / 16.0)
 scene.add(renderPlane);
 
 const clock = new THREE.Clock();
