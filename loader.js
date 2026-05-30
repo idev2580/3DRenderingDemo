@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { SparkRenderer, SplatMesh } from "@sparkjsdev/spark";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 
 const splatSwapYZMatrix = new THREE.Matrix4().set(
   1, 0, 0, 0,
@@ -54,6 +55,10 @@ function frameObject(camera, controls, object, clippingRadiusScale = 1) {
 
 async function loadGltfScene(gltfUrl, scene, camera, controls, sceneScale=1.0){
     const loader = new GLTFLoader();
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.6/");
+    loader.setDRACOLoader(dracoLoader);
+    
     const gltf = await loader.loadAsync(gltfUrl);
     const loadedScene = gltf.scene
     loadedScene.traverse((object) => {

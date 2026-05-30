@@ -6,7 +6,7 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 // const gltfUrl = "assets/scene.gltf";
 const isDebug = true;
-const gltfUrl = "assets/nub1.glb";
+const gltfUrl = "assets/nub.compressed.glb";
 const gltfSceneScale = 0.2;
 const splat1Url = "assets/nubzuki_world.compressed.ply";
 const splat1BackgroundOffset = new THREE.Vector3(0, 0, 0.0);

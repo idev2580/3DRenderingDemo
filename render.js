@@ -9,9 +9,9 @@ import { loadSplat, loadGltfScene } from "loader";
 
 const container = document.querySelector("#viewport");
 
+
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x15171c);
-
 const camera = new THREE.PerspectiveCamera(
   45,
   window.innerWidth / window.innerHeight,
@@ -19,7 +19,6 @@ const camera = new THREE.PerspectiveCamera(
   100
 );
 camera.position.set(0, 1.2, 4);
-
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -58,15 +57,15 @@ const renderPlane = new THREE.Mesh(
   })
 );
 const [texSplatRoot, texSplat] = loadSplat(splat2Url, textureScene, true, splat2BackgroundOffset);
-
 renderPlane.position.set(0, 0, 0);
-renderPlane.rotateY(3.141592653589793238 / 2.0)
+renderPlane.rotateY(3.141592653589793238 / 3.0)
 scene.add(renderPlane);
 
 const clock = new THREE.Clock();
 const { loadedScene, mixer } = await loadGltfScene(gltfUrl, scene, camera, controls, gltfSceneScale);
 
 const bgSplatTimeOffset = -1.5924994035447764;
+// const bgSplatTimeOffset = -1.5924994035447764;
 const bgSplatAnimateT = dyno.dynoFloat(bgSplatTimeOffset);
 const effectParams = {
   effect: "Disintegrate",
@@ -197,8 +196,8 @@ window.addEventListener("resize", () => {
 
 renderer.setAnimationLoop(() => {
   const delta = clock.getDelta();
-  bgSplatAnimateT.value += 2 * delta;
-  bgSplat.updateVersion();
+  // bgSplatAnimateT.value += 2 * delta;
+  // bgSplat.updateVersion();
 
   if (mixer) {
     mixer.update(delta);
