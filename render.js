@@ -78,39 +78,39 @@ const defaultDuckPlaneVertices = [
   new THREE.Vector3(0.055, -0.046, 0.005),
 ];
 const defaultCameraTrajectory = [
-  {
-    frame: 0,
-    camera: {
-      pos_x: 0.3913685233622804,
-      pos_y: 0.31538454397056,
-      pos_z: 0.7662335576788275,
-      target_x: 1.8318679906315083e-15,
-      target_y: 3.0531133177191805e-15,
-      target_z: 3.4416913763379857e-15,
-    },
-  },
-  {
-    frame: 60,
-    camera: {
-      pos_x: -0.1061780792978928,
-      pos_y: -0.0719938121798051,
-      pos_z: 0.08279238218098461,
-      target_x: -0.10620534814175221,
-      target_y: -0.07201026062733466,
-      target_z: 0.0827207757758963,
-    },
-  },
-  {
-    frame: 104,
-    camera: {
-      pos_x: -0.3347315616617145,
-      pos_y: -0.0251050291783802,
+  {
+    frame: 0,
+    camera: {
+      pos_x: 0.633671575902512,
+      pos_y: 0.25515659509114985,
+      pos_z: 0.2157952701420278,
+      target_x: 1.8318679906315083e-15,
+      target_y: 3.0531133177191805e-15,
+      target_z: 3.4416913763379857e-15
+    },
+  },
+  {
+    frame: 67,
+    camera: {
+      pos_x: -0.15,
+      pos_y: -0.09,
+      pos_z: -0.01,
+      target_x: -0.1500177247485086,
+      target_y: -0.09001069149089413,
+      target_z: -0.010046544163307547,
+    },
+  },
+  {
+    frame: 104,
+    camera: {
+      pos_x: -0.3347315616617145,
+      pos_y: -0.0251050291783802,
       pos_z: -0.6688375205083892,
-      target_x: -0.23404161963214468,
-      target_y: -0.10472954833816957,
-      target_z: 0.031195333721293874,
-    },
-  },
+      target_x: -0.23404161963214468,
+      target_y: -0.10472954833816957,
+      target_z: 0.031195333721293874,
+    },
+  },
 ];
 
 const renderPlane = new THREE.Mesh(
@@ -1515,7 +1515,7 @@ if (isDebug) {
   createModelControlPanel(modelRoot, [cameraControlSection.section]);
 }
 
-const thresholdTime = 2
+const thresholdTime = 1.65
 const switchAnimationHalfLength = 1.6
 const switchAnimationLength = 2 * switchAnimationHalfLength
 const splatFadeStartTime = thresholdTime + switchAnimationHalfLength / 2

@@ -5,7 +5,7 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 
 // const gltfUrl = "assets/scene.gltf";
-const isDebug = true;
+const isDebug = false;
 const gltfUrl = "assets/nub.compressed.glb";
 const gltfSceneScale = 0.2;
 const splat1Url = "assets/nubzuki_world.compressed.ply";
