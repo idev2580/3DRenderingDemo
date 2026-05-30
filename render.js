@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { SparkRenderer, dyno } from "@sparkjsdev/spark";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 
 import {
   isDebug,
@@ -77,6 +79,14 @@ const defaultDuckPlaneVertices = [
   new THREE.Vector3(-0.0417, -0.05, 0.006),
   new THREE.Vector3(0.055, -0.046, 0.005),
 ];
+
+const duckBurstUrl = "assets/duck.compressed.glb";
+const duckBurstStartTime = 6.6;
+const duckBurstCount = 96;
+const duckBurstEndTime = 10;
+const duckBurstDuration = duckBurstEndTime - duckBurstStartTime;
+const duckBurstSpawnDuration = 1.15;
+const duckBurstFloorY = -0.1;
 const defaultCameraTrajectory = [
   {
     frame: 0,
@@ -111,6 +121,28 @@ const defaultCameraTrajectory = [
       target_z: 0.031195333721293874,
     },
   },
+  {
+    frame: 220,
+    camera: {
+      pos_x: -0.3347315616617145,
+      pos_y: -0.0251050291783802,
+      pos_z: -0.6688375205083892,
+      target_x: -0.23404161963214468,
+      target_y: -0.10472954833816957,
+      target_z: 0.031195333721293874,
+    },
+  },
+  {
+    frame:240,
+    camera: {
+      pos_x: -0.337659051724034,
+      pos_y: -0.08623963266899609,
+      pos_z: -0.30276164804762734,
+      target_x: -0.28,
+      target_y: -0.12000000000000001,
+      target_z: 0.009999999999999998,
+    }
+  }
 ];
 
 const renderPlane = new THREE.Mesh(
@@ -165,6 +197,201 @@ function cloneObjectMaterials(object) {
       ? child.material.map((material) => material.clone())
       : child.material.clone();
   });
+}
+
+function createSeededRandom(seed) {
+  let value = seed >>> 0;
+
+  return () => {
+    value = (value * 1664525 + 1013904223) >>> 0;
+    return value / 0x100000000;
+  };
+}
+
+function createDuckBurstParticles(count) {
+  const particles = [];
+
+  for (let index = 0; index < count; index += 1) {
+    const random = createSeededRandom(0xdecafbad + index * 97);
+    const angle = random() * Math.PI * 2;
+    const radialSpeed = THREE.MathUtils.lerp(0.1, 0.4, random());
+    const upwardSpeed = THREE.MathUtils.lerp(1.15, 2.45, random());
+    const velocity = new THREE.Vector3(
+      Math.cos(angle) * radialSpeed,
+      upwardSpeed,
+      Math.sin(angle) * radialSpeed
+    );
+
+    particles.push({
+      delay: random() * duckBurstSpawnDuration,
+      velocity,
+      scale: THREE.MathUtils.lerp(0.025, 0.055, random()),
+      yaw: random() * Math.PI * 2,
+      spin: new THREE.Vector3(
+        THREE.MathUtils.lerp(-6, 6, random()),
+        THREE.MathUtils.lerp(-10, 10, random()),
+        THREE.MathUtils.lerp(-6, 6, random())
+      ),
+    });
+  }
+
+  return particles;
+}
+
+function evaluateBouncingDuck(origin, particle, age, output) {
+  output.copy(origin);
+
+  if (age <= 0) {
+    return output;
+  }
+
+  const velocity = particle.velocity.clone();
+  const gravity = -4.2;
+  const bounceDamping = 0.56;
+  const groundFriction = 0.78;
+  const maxAge = Math.max(duckBurstDuration - particle.delay, 0);
+  let remaining = Math.min(age, maxAge);
+
+  while (remaining > 0) {
+    const step = Math.min(remaining, 1 / 90);
+
+    velocity.y += gravity * step;
+    output.addScaledVector(velocity, step);
+
+    if (output.y < duckBurstFloorY) {
+      output.y = duckBurstFloorY;
+
+      if (velocity.y < 0) {
+        velocity.y *= -bounceDamping;
+        velocity.x *= groundFriction;
+        velocity.z *= groundFriction;
+      }
+    }
+
+    remaining -= step;
+  }
+
+  return output;
+}
+
+async function createDuckBurst(url, count) {
+  const loader = new GLTFLoader();
+  const dracoLoader = new DRACOLoader();
+
+  dracoLoader.setDecoderPath("./libs/three/draco/");
+  loader.setDRACOLoader(dracoLoader);
+
+  const gltf = await loader.loadAsync(url);
+  const source = gltf.scene;
+  const sourceBox = new THREE.Box3().setFromObject(source);
+  const sourceCenter = sourceBox.getCenter(new THREE.Vector3());
+  const sourceSize = sourceBox.getSize(new THREE.Vector3());
+  const sourceLargestAxis = Math.max(sourceSize.x, sourceSize.y, sourceSize.z);
+  const sourceScale = sourceLargestAxis > 0 ? 1 / sourceLargestAxis : 1;
+  const group = new THREE.Group();
+  group.matrixAutoUpdate = true;
+  group.position.set(0, 0, 0);
+  group.rotation.set(0, 0, 0);
+  group.scale.set(1, 1, 1);
+  const particles = createDuckBurstParticles(count);
+  const meshes = [];
+  const hiddenMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
+  const position = new THREE.Vector3();
+  const rotation = new THREE.Euler();
+  const dummy = new THREE.Object3D();
+  const origin = new THREE.Vector3();
+  const lastOrigin = new THREE.Vector3();
+  let hasOrigin = false;
+
+  source.position.sub(sourceCenter);
+  source.scale.setScalar(sourceScale);
+  source.updateMatrixWorld(true);
+
+  source.traverse((object) => {
+    if (!object.isMesh) {
+      return;
+    }
+
+    const geometry = object.geometry.clone();
+    const material = Array.isArray(object.material)
+      ? object.material.map((entry) => entry.clone())
+      : object.material.clone();
+
+    geometry.applyMatrix4(object.matrixWorld);
+
+    const instancedMesh = new THREE.InstancedMesh(geometry, material, count);
+    instancedMesh.frustumCulled = false;
+
+    for (let index = 0; index < count; index += 1) {
+      instancedMesh.setMatrixAt(index, hiddenMatrix);
+    }
+
+    instancedMesh.instanceMatrix.needsUpdate = true;
+    meshes.push(instancedMesh);
+    group.add(instancedMesh);
+  });
+
+  function setVisibleInstance(index, particle, age) {
+    evaluateBouncingDuck(origin, particle, age, position);
+
+    rotation.set(
+      particle.spin.x * age,
+      particle.yaw + particle.spin.y * age,
+      particle.spin.z * age
+    );
+    dummy.position.copy(position);
+    dummy.rotation.copy(rotation);
+    dummy.scale.setScalar(particle.scale);
+    dummy.updateMatrix();
+
+    for (const mesh of meshes) {
+      mesh.setMatrixAt(index, dummy.matrix);
+    }
+  }
+
+  function setHiddenInstance(index) {
+    for (const mesh of meshes) {
+      mesh.setMatrixAt(index, hiddenMatrix);
+    }
+  }
+
+  return {
+    group,
+    update(time, emitterObject) {
+      if (time < duckBurstStartTime) {
+        hasOrigin = false;
+        for (let index = 0; index < count; index += 1) {
+          setHiddenInstance(index);
+        }
+      } else {
+        if (!hasOrigin && emitterObject) {
+          emitterObject.updateMatrixWorld(true);
+          emitterObject.getWorldPosition(origin);
+          lastOrigin.copy(origin);
+          hasOrigin = true;
+        } else if (!hasOrigin) {
+          origin.copy(lastOrigin);
+        }
+
+        const burstAge = time - duckBurstStartTime;
+
+        for (let index = 0; index < count; index += 1) {
+          const particle = particles[index];
+          const particleAge = burstAge - particle.delay;
+
+          if (particleAge < 0) {
+            setHiddenInstance(index);
+          } else {
+            setVisibleInstance(index, particle, particleAge);
+          }
+        }
+      }
+
+      for (const mesh of meshes) {
+        mesh.instanceMatrix.needsUpdate = true;
+      }
+    },
+  };
 }
 
 if (transitionObject) {
@@ -1520,7 +1747,11 @@ const switchAnimationHalfLength = 1.6
 const switchAnimationLength = 2 * switchAnimationHalfLength
 const splatFadeStartTime = thresholdTime + switchAnimationHalfLength / 2
 const splatFadeEndTime = splatFadeStartTime + switchAnimationHalfLength
-const splatTimelineEndTime = Math.max(thresholdTime + switchAnimationLength, splatFadeEndTime)
+const splatTimelineEndTime = Math.max(
+  thresholdTime + switchAnimationLength,
+  splatFadeEndTime,
+  duckBurstEndTime
+)
 let applySplatTimelineAt = () => {};
 const cameraTrajectoryEditor = createCameraTrajectoryEditor({
   targetCamera: camera,
@@ -1558,6 +1789,10 @@ bgRoot.rotateY(3.141592653589793238 / 3.0);
 splatEffectInitialize(bgSplat, bgSplatAnimateT, bgEffectParams);
 splatEffectInitialize(bg2Splat, bgSplatAnimateT, bg2EffectParams);
 splatEffectInitialize(texSplat, bgSplatAnimateT, texEffectParams);
+
+const duckBurst = await createDuckBurst(duckBurstUrl, duckBurstCount);
+scene.add(duckBurst.group);
+duckBurst.update(0, transitionObject);
 
 const sceneTimeline = buildAnimationTimeline(gltf.animations ?? [], splatTimelineEndTime);
 const splatTimelineDuration =
@@ -1633,6 +1868,7 @@ renderer.setAnimationLoop(() => {
   const delta = clock.getDelta();
   const sceneTime = cameraTrajectoryEditor.update(delta);
 
+  duckBurst.update(sceneTime, transitionObject);
   textureCamera.rotation.y += delta * 0.4;
 
   if (followObject && !cameraTrajectoryEditor.isPreviewEnabled()) {

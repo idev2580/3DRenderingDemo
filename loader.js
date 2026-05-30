@@ -54,7 +54,7 @@ function frameObject(camera, controls, object, clippingRadiusScale = 1) {
 async function loadGltfScene(gltfUrl, camera, controls, sceneScale=1.0){
     const loader = new GLTFLoader();
     const dracoLoader = new DRACOLoader();
-    dracoLoader.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.6/");
+    dracoLoader.setDecoderPath("./libs/three/draco/");
     loader.setDRACOLoader(dracoLoader);
 
     const gltf = await loader.loadAsync(gltfUrl);
