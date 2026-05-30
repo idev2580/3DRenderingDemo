@@ -79,18 +79,7 @@ renderPlane.scale.setScalar(defaultDuckPlaneTransform.scale);
 
 const clock = new THREE.Clock();
 const { loadedScene, modelRoot, mixer } = await loadGltfScene(gltfUrl, camera, controls, gltfSceneScale);
-const followObject = loadedScene.getObjectByName("아마츄어");
 const transitionObject = loadedScene.getObjectByName("아마츄어001");
-const followTarget = new THREE.Vector3();
-const previousFollowTarget = new THREE.Vector3();
-const initialFollowCameraOffset = new THREE.Vector3(0.48, 0.1, 0.1);
-const cameraApproachScale = 0.65;
-const cameraApproachDuration = 0.8;
-const cameraApproachYaw = THREE.MathUtils.degToRad(90);
-const cameraApproachStartOffset = new THREE.Vector3();
-const cameraApproachCurrentOffset = new THREE.Vector3();
-let hasPreviousFollowTarget = false;
-let hasCameraApproachStartOffset = false;
 
 function setObjectOpacity(object, opacity) {
   object.traverse((child) => {
@@ -121,10 +110,6 @@ function cloneObjectMaterials(object) {
   });
 }
 
-if (!followObject) {
-  console.warn("follow object not found: 아마츄어");
-}
-
 if (transitionObject) {
   cloneObjectMaterials(transitionObject);
   transitionObject.visible = true;
@@ -138,16 +123,6 @@ modelRoot.rotation.copy(defaultNubTransform.rotation);
 modelRoot.scale.setScalar(defaultNubTransform.scale);
 modelRoot.add(renderPlane);
 scene.add(modelRoot);
-
-if (followObject) {
-  modelRoot.updateMatrixWorld(true);
-  followObject.getWorldPosition(followTarget);
-  controls.target.copy(followTarget);
-  camera.position.copy(followTarget).add(initialFollowCameraOffset);
-  previousFollowTarget.copy(followTarget);
-  hasPreviousFollowTarget = true;
-  controls.update();
-}
 
 function formatControlValue(value) {
   return value.toFixed(2);
@@ -464,43 +439,6 @@ renderer.setAnimationLoop(() => {
     mixer.update(delta);
   }
   textureCamera.rotation.y += delta * 0.4;
-
-  if (followObject) {
-    followObject.getWorldPosition(followTarget);
-
-    if (!hasPreviousFollowTarget) {
-      previousFollowTarget.copy(followTarget);
-      hasPreviousFollowTarget = true;
-    }
-
-    const followDelta = followTarget.clone().sub(previousFollowTarget);
-
-    controls.target.add(followDelta);
-    camera.position.add(followDelta);
-
-    if (clock.elapsedTime >= thresholdTime) {
-      if (!hasCameraApproachStartOffset) {
-        cameraApproachStartOffset.copy(camera.position).sub(controls.target);
-        hasCameraApproachStartOffset = true;
-      }
-
-      const approachAlpha = THREE.MathUtils.smoothstep(
-        clock.elapsedTime,
-        thresholdTime,
-        thresholdTime + cameraApproachDuration
-      );
-      const currentScale = THREE.MathUtils.lerp(1, cameraApproachScale, approachAlpha);
-      const currentYaw = cameraApproachYaw * approachAlpha;
-
-      cameraApproachCurrentOffset
-        .copy(cameraApproachStartOffset)
-        .applyAxisAngle(new THREE.Vector3(0, 1, 0), currentYaw)
-        .multiplyScalar(currentScale);
-      camera.position.copy(controls.target).add(cameraApproachCurrentOffset);
-    }
-
-    previousFollowTarget.copy(followTarget);
-  }
 
   controls.update();
 
