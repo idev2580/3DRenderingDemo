@@ -79,11 +79,36 @@ renderPlane.scale.setScalar(defaultDuckPlaneTransform.scale);
 
 const clock = new THREE.Clock();
 const { loadedScene, modelRoot, mixer } = await loadGltfScene(gltfUrl, camera, controls, gltfSceneScale);
+const followObject = loadedScene.getObjectByName("아마츄어");
+const followTarget = new THREE.Vector3();
+const previousFollowTarget = new THREE.Vector3();
+const initialFollowCameraOffset = new THREE.Vector3(0.75, 0.15, 0.15);
+const cameraApproachScale = 0.65;
+const cameraApproachDuration = 0.8;
+const cameraApproachStartOffset = new THREE.Vector3();
+const cameraApproachCurrentOffset = new THREE.Vector3();
+let hasPreviousFollowTarget = false;
+let hasCameraApproachStartOffset = false;
+
+if (!followObject) {
+  console.warn("follow object not found: 아마츄어");
+}
+
 modelRoot.position.copy(defaultNubTransform.position);
 modelRoot.rotation.copy(defaultNubTransform.rotation);
 modelRoot.scale.setScalar(defaultNubTransform.scale);
 modelRoot.add(renderPlane);
 scene.add(modelRoot);
+
+if (followObject) {
+  modelRoot.updateMatrixWorld(true);
+  followObject.getWorldPosition(followTarget);
+  controls.target.copy(followTarget);
+  camera.position.copy(followTarget).add(initialFollowCameraOffset);
+  previousFollowTarget.copy(followTarget);
+  hasPreviousFollowTarget = true;
+  controls.update();
+}
 
 function formatControlValue(value) {
   return value.toFixed(2);
@@ -341,9 +366,13 @@ const effectParams = {
   sceneScale: 0.1
 };
 const [bgRoot, bgSplat] = loadSplat(splat1Url, true, splat1BackgroundOffset);
+const [bg2Root, bg2Splat] = loadSplat(splat2Url, true, splat1BackgroundOffset);
 scene.add(bgRoot);
+scene.add(bg2Root)
 bgRoot.rotateY(3.141592653589793238 / 3.0);
 splatEffectInitialize(bgSplat, bgSplatAnimateT, effectParams);
+splatEffectInitialize(bg2Splat, bgSplatAnimateT, effectParams);
+splatEffectInitialize(texSplat, bgSplatAnimateT, effectParams);
 
 await Promise.all([bgSplat.initialized, texSplat.initialized]);
 window.addEventListener("resize", () => {
@@ -352,14 +381,26 @@ window.addEventListener("resize", () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+bg2Root.visible=false
+bg2Root.rotateY(1.2 * 3.141592653589793238)
+bg2Root.position.y = -0.07
+bg2Root.position.z = 0.1
+bg2Root.position.x = -0.1
 const thresholdTime = 2
-const switchAnimationLength = 3.2
+const switchAnimationHalfLength = 1.6
+const switchAnimationLength = 2 * switchAnimationHalfLength
 renderer.setAnimationLoop(() => {
   const delta = clock.getDelta();
   // console.log(`ElapsedTime = ${clock.elapsedTime}`)
   if(clock.elapsedTime > thresholdTime && clock.elapsedTime < thresholdTime + switchAnimationLength){
     bgSplatAnimateT.value += 2 * delta;
     bgSplat.updateVersion();
+    bg2Splat.updateVersion();
+    texSplat.updateVersion();
+  }
+  if(clock.elapsedTime > thresholdTime + switchAnimationHalfLength){
+    bg2Root.visible = true
+    bgRoot.visible = false
   }
   // bgSplatAnimateT.value += 2 * delta;
   // bgSplat.updateVersion();
@@ -368,6 +409,41 @@ renderer.setAnimationLoop(() => {
     mixer.update(delta);
   }
   textureCamera.rotation.y += delta * 0.4;
+
+  if (followObject) {
+    followObject.getWorldPosition(followTarget);
+
+    if (!hasPreviousFollowTarget) {
+      previousFollowTarget.copy(followTarget);
+      hasPreviousFollowTarget = true;
+    }
+
+    const followDelta = followTarget.clone().sub(previousFollowTarget);
+
+    controls.target.add(followDelta);
+    camera.position.add(followDelta);
+
+    if (clock.elapsedTime >= thresholdTime) {
+      if (!hasCameraApproachStartOffset) {
+        cameraApproachStartOffset.copy(camera.position).sub(controls.target);
+        hasCameraApproachStartOffset = true;
+      }
+
+      const approachAlpha = THREE.MathUtils.smoothstep(
+        clock.elapsedTime,
+        thresholdTime,
+        thresholdTime + cameraApproachDuration
+      );
+      const currentScale = THREE.MathUtils.lerp(1, cameraApproachScale, approachAlpha);
+
+      cameraApproachCurrentOffset
+        .copy(cameraApproachStartOffset)
+        .multiplyScalar(currentScale);
+      camera.position.copy(controls.target).add(cameraApproachCurrentOffset);
+    }
+
+    previousFollowTarget.copy(followTarget);
+  }
 
   controls.update();
 
