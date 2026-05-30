@@ -73,7 +73,7 @@ const effectParams = {
   sceneScale: 0.1
 };
 const [bgRoot, bgSplat] = loadSplat(splat1Url, scene, true, splat1BackgroundOffset);
-bgRoot.rotateY(2.0 * 3.141592653589793238 / 3.0)
+bgRoot.rotateY(3.141592653589793238 / 3.0)
 bgSplat.objectModifier = dyno.dynoBlock(
   { gsplat: dyno.Gsplat },
   { gsplat: dyno.Gsplat },
