@@ -352,8 +352,15 @@ window.addEventListener("resize", () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+const thresholdTime = 2
+const switchAnimationLength = 3.2
 renderer.setAnimationLoop(() => {
   const delta = clock.getDelta();
+  // console.log(`ElapsedTime = ${clock.elapsedTime}`)
+  if(clock.elapsedTime > thresholdTime && clock.elapsedTime < thresholdTime + switchAnimationLength){
+    bgSplatAnimateT.value += 2 * delta;
+    bgSplat.updateVersion();
+  }
   // bgSplatAnimateT.value += 2 * delta;
   // bgSplat.updateVersion();
 
@@ -367,7 +374,6 @@ renderer.setAnimationLoop(() => {
   renderer.setRenderTarget(renderTarget);
   renderer.render(textureScene, textureCamera);
   renderer.setRenderTarget(null);
-
   renderer.render(scene, camera);
   if (isDebug) {
     renderAxesOverlay(renderer, camera, controls);
