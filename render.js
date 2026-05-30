@@ -57,7 +57,7 @@ const renderPlane = new THREE.Mesh(
     side: THREE.DoubleSide,
   })
 );
-loadSplat(splat2Url, textureScene, true, splat2BackgroundOffset);
+const [texSplatRoot, texSplat] = loadSplat(splat2Url, textureScene, true, splat2BackgroundOffset);
 
 renderPlane.position.set(0, 0, 0);
 renderPlane.rotateY(3.141592653589793238 / 2.0)
@@ -66,7 +66,8 @@ scene.add(renderPlane);
 const clock = new THREE.Clock();
 const { loadedScene, mixer } = await loadGltfScene(gltfUrl, scene, camera, controls, gltfSceneScale);
 
-const bgSplatAnimateT = dyno.dynoFloat(0);
+const bgSplatTimeOffset = -1.5924994035447764;
+const bgSplatAnimateT = dyno.dynoFloat(bgSplatTimeOffset);
 const effectParams = {
   effect: "Disintegrate",
   intensity: 0.8,
@@ -82,8 +83,8 @@ bgSplat.objectModifier = dyno.dynoBlock(
       inTypes: { 
         gsplat: dyno.Gsplat, 
         t: "float", 
-        effectType: "int", 
-        intensity: "float" 
+        intensity: "float" ,
+        sceneScale: "float"
       },
       outTypes: { gsplat: dyno.Gsplat },
       globals: () => [
@@ -160,16 +161,6 @@ bgSplat.objectModifier = dyno.dynoBlock(
             p.xz *= rot(tt * 2. + p.y * 2. * tt);
             return vec4(mix(p, pos, tt), tt);
           }
-          
-          vec4 flare(vec3 pos, float t) {
-            vec3 p = vec3(0., -1.5, 0.);
-            float tt = smoothstep(-1., .5, sin(t + hash(pos).x));  
-            tt = tt * tt;              
-            p.x += sin(t * 2.) * tt;
-            p.z += sin(t * 2.) * tt;
-            p.y += sin(t) * tt;
-            return vec4(mix(pos, p, tt), tt);
-          }
         `)
       ],
       statements: ({ inputs, outputs }) => dyno.unindentLines(`
@@ -196,6 +187,8 @@ bgSplat.objectModifier = dyno.dynoBlock(
 );
 bgSplat.updateGenerator();
 
+
+await Promise.all([bgSplat.initialized, texSplat.initialized])
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
@@ -204,8 +197,8 @@ window.addEventListener("resize", () => {
 
 renderer.setAnimationLoop(() => {
   const delta = clock.getDelta();
-  // bgSplatAnimateT.value += 2*delta;
-  // bgSplat.updateVersion();
+  bgSplatAnimateT.value += 2 * delta;
+  bgSplat.updateVersion();
 
   if (mixer) {
     mixer.update(delta);
