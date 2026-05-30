@@ -84,8 +84,8 @@ async function loadGltfScene(gltfUrl, camera, controls, sceneScale=1.0){
         for (const clip of gltf.animations) {
             const action = mixer.clipAction(clip);
 
-            action.setLoop(THREE.LoopOnce, 1);
-            action.clampWhenFinished = true;
+            action.setLoop(THREE.LoopRepeat, Infinity);
+            action.clampWhenFinished = false;
             action.play();
         }
     }
